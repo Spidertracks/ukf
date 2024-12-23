@@ -26,7 +26,7 @@ SOFTWARE.
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include "UKF/Types.h"
-#include "UKF/StateVector.h"
+#include <functional>
 
 namespace UKF {
 
@@ -97,28 +97,43 @@ public:
     covariance are calculated.
     */
     template <typename... U>
-    void a_priori_step(real_t delta, const U&... input) {
+    void a_priori_step_with_reset(real_t delta, std::function<void()> reset, const U&... input)
+    {
         /*
         Add process noise covariance to the state covariance and calculate
         the LLT decomposition of the scaled covariance matrix.
         */
-        assert(((covariance * (StateVectorType::covariance_size() +
-            Parameters::Lambda<StateVectorType>)).llt().info() == Eigen::Success)
-            && "Covariance matrix is not positive definite");
+        if (((covariance * (StateVectorType::covariance_size() +
+                            Parameters::Lambda<StateVectorType>))
+                 .llt()
+                 .info() != Eigen::Success)) {
+            reset();
+            return;
+        }
 
         sigma_points = state.calculate_sigma_point_distribution(((covariance + process_noise_covariance) *
-            (StateVectorType::covariance_size() + Parameters::Lambda<StateVectorType>)).llt().matrixL());
+                                                                 (StateVectorType::covariance_size() + Parameters::Lambda<StateVectorType>))
+                                                                    .llt()
+                                                                    .matrixL());
 
         /* Propagate the sigma points through the process model. */
-        for(std::size_t i = 0; i < StateVectorType::num_sigma(); i++) {
-            sigma_points.col(i) <<
-                StateVectorType(sigma_points.col(i)).template process_model<IntegratorType>(delta, input...);
+        for (std::size_t i = 0; i < StateVectorType::num_sigma(); i++) {
+            sigma_points.col(i) << StateVectorType(sigma_points.col(i)).template process_model<IntegratorType>(delta, input...);
         }
 
         /* Calculate the a priori estimate mean, deltas and covariance. */
         state = StateVectorType::calculate_sigma_point_mean(sigma_points);
         w_prime = state.calculate_sigma_point_deltas(sigma_points);
         covariance = StateVectorType::calculate_sigma_point_covariance(w_prime);
+    }
+    template <typename... U>
+    void a_priori_step(real_t delta, const U&... input)
+    {
+        const auto reset = [this](bool) {
+            assert(false &&
+                   "Covariance matrix is not positive definite");
+        };
+        a_priori_step_with_reset(delta, reset, input...);
     }
 
     /*

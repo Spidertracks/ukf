@@ -28,6 +28,7 @@ SOFTWARE.
 #include "UKF/Types.h"
 #include "UKF/StateVector.h"
 #include <type_traits>
+#include <functional>
 
 namespace UKF {
 
@@ -98,17 +99,24 @@ public:
     covariance are calculated.
     */
     template <typename... U>
-    void a_priori_step(real_t delta, const U&... input) {
+    void a_priori_step_with_reset(real_t delta, std::function<void()> reset, const U&... input)
+    {
         /*
         Add process noise covariance to the state covariance and calculate
         the LLT decomposition of the scaled covariance matrix.
         */
-        assert(((covariance * (StateVectorType::covariance_size() +
-            Parameters::Lambda<StateVectorType>)).llt().info() == Eigen::Success)
-            && "Covariance matrix is not positive definite");
+        if (((covariance * (StateVectorType::covariance_size() +
+                            Parameters::Lambda<StateVectorType>))
+                 .llt()
+                 .info() != Eigen::Success)) {
+            reset();
+            return;
+        }
 
         sigma_points = state.calculate_sigma_point_distribution(((covariance + process_noise_covariance) *
-            (StateVectorType::covariance_size() + Parameters::Lambda<StateVectorType>)).llt().matrixL());
+                                                                 (StateVectorType::covariance_size() + Parameters::Lambda<StateVectorType>))
+                                                                    .llt()
+                                                                    .matrixL());
 
         /* Propagate the sigma points through the process model. */
         for(std::size_t i = 0; i < StateVectorType::num_sigma(); i++) {
@@ -125,6 +133,15 @@ public:
         state = StateVectorType::calculate_sigma_point_mean(sigma_points);
         w_prime = state.calculate_sigma_point_deltas(sigma_points);
         covariance = StateVectorType::calculate_sigma_point_covariance(w_prime);
+    }
+    template <typename... U>
+    void a_priori_step(real_t delta, const U&... input)
+    {
+        const auto reset = [this](bool) {
+            assert(false &&
+                   "Covariance matrix is not positive definite");
+        };
+        a_priori_step_with_reset(delta, reset, input...);
     }
 
     /*
@@ -522,7 +539,7 @@ public:
         z_prime = z_pred.template calculate_sigma_point_deltas<StateVectorType>(measurement_sigma_points);
 
         /* Calculate innovation and innovation root covariance. */
-        innovation = z_pred.template calculate_innovation(z);
+        innovation = z_pred.calculate_innovation(z);
 
         /*
         Create an augmented matrix containing all but the centre innovation
@@ -544,7 +561,7 @@ public:
         augmented_z_prime.block(0, 0, z.size(), StateVectorType::num_sigma() - 1) =
             std::sqrt(Parameters::Sigma_WCI<StateVectorType>) * z_prime.rightCols(StateVectorType::num_sigma() - 1);
         augmented_z_prime.block(0, StateVectorType::num_sigma() - 1, z.size(), z.size()) =
-            z.template calculate_measurement_root_covariance(measurement_root_covariance, z_pred);
+            z.calculate_measurement_root_covariance(measurement_root_covariance, z_pred);
 
         /*
         Calculate the QR decomposition of the augmented innovation deltas.

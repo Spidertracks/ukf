@@ -239,6 +239,24 @@ constexpr std::array<T, N> create_array(const T& value)
     return create_array(value, std::make_index_sequence<N>());
 }
 
+/*
+Fully-initialised instance for the sigma_point_mean dummy dispatch argument.
+A default-constructed Eigen temporary leaves storage uninitialised under -DNDEBUG,
+which GCC 15's inlining -Wmaybe-uninitialized flags even though the callee never
+reads it. Zero() (Eigen) / value-init (scalar) gives GCC defined storage.
+*/
+template <typename T>
+inline T dispatch_dummy()
+{
+    if constexpr (std::is_arithmetic_v<T>) {
+        return T{};
+    } else if constexpr (std::is_same_v<T, Quaternion>) {
+        return Quaternion::Identity();
+    } else {
+        return T::Zero();
+    }
+}
+
 } // namespace Detail
 
 namespace Parameters
@@ -624,7 +642,7 @@ class StateVector : public StateVectorBaseType<typename Fields::type...>
             = sigma_point_mean(
                 X.template block<Detail::StateVectorDimension<typename T::type>, num_sigma()>(
                     Detail::get_field_offset<0, Fields...>(T::key), 0),
-                typename T::type());
+                Detail::dispatch_dummy<typename T::type>());
     }
 
     template <typename T1, typename T2, typename... Tail>

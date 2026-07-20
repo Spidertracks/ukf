@@ -530,7 +530,7 @@ class FixedMeasurementVector : public MeasurementVectorFixedBaseType<typename Fi
             = Detail::MeasurementStateHelper<FixedMeasurementVector, S>::sigma_point_mean(
                 Z.template block<Detail::StateVectorDimension<typename T::type>, S::num_sigma()>(
                     Detail::get_field_offset<0, Fields...>(T::key), 0),
-                typename T::type());
+                Detail::dispatch_dummy<typename T::type>());
     }
 
     template <typename S, typename T1, typename T2, typename... Tail>
@@ -895,7 +895,7 @@ class DynamicMeasurementVector : public MeasurementVectorDynamicBaseType<typenam
             mean.template segment<Detail::StateVectorDimension<typename T::type>>(offset) = Detail::MeasurementStateHelper<DynamicMeasurementVector, S>::sigma_point_mean(
                 Z.template block<Detail::StateVectorDimension<typename T::type>, S::num_sigma()>(
                     offset, 0),
-                typename T::type());
+                Detail::dispatch_dummy<typename T::type>());
         } else {
             return;
         }

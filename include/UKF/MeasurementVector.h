@@ -196,9 +196,9 @@ class MeasurementStateHelper
                Parameters::Sigma_WM0<S> * sigma.col(0);
     }
 
-    static real_t sigma_point_mean(const Matrix<1, S::num_sigma()>& sigma, const real_t& field)
+    static Vector<1> sigma_point_mean(const Matrix<1, S::num_sigma()>& sigma, const real_t& field)
     {
-        return Parameters::Sigma_WMI<S> * sigma.template segment<S::num_sigma() - 1>(1).sum() + Parameters::Sigma_WM0<S> * sigma(0);
+        return Vector<1>(Parameters::Sigma_WMI<S> * sigma.template segment<S::num_sigma() - 1>(1).sum() + Parameters::Sigma_WM0<S> * sigma(0));
     }
 
     /*
@@ -527,10 +527,10 @@ class FixedMeasurementVector : public MeasurementVectorFixedBaseType<typename Fi
     {
         mean.template segment<Detail::StateVectorDimension<typename T::type>>(
             Detail::get_field_offset<0, Fields...>(T::key))
-            << Detail::MeasurementStateHelper<FixedMeasurementVector, S>::sigma_point_mean(
-                   Z.template block<Detail::StateVectorDimension<typename T::type>, S::num_sigma()>(
-                       Detail::get_field_offset<0, Fields...>(T::key), 0),
-                   typename T::type());
+            = Detail::MeasurementStateHelper<FixedMeasurementVector, S>::sigma_point_mean(
+                Z.template block<Detail::StateVectorDimension<typename T::type>, S::num_sigma()>(
+                    Detail::get_field_offset<0, Fields...>(T::key), 0),
+                typename T::type());
     }
 
     template <typename S, typename T1, typename T2, typename... Tail>
@@ -892,7 +892,7 @@ class DynamicMeasurementVector : public MeasurementVectorDynamicBaseType<typenam
     {
         std::size_t offset = std::get<Detail::get_field_order<0, Fields...>(T::key)>(field_offsets);
         if (offset != std::numeric_limits<std::size_t>::max()) {
-            mean.template segment<Detail::StateVectorDimension<typename T::type>>(offset) << Detail::MeasurementStateHelper<DynamicMeasurementVector, S>::sigma_point_mean(
+            mean.template segment<Detail::StateVectorDimension<typename T::type>>(offset) = Detail::MeasurementStateHelper<DynamicMeasurementVector, S>::sigma_point_mean(
                 Z.template block<Detail::StateVectorDimension<typename T::type>, S::num_sigma()>(
                     offset, 0),
                 typename T::type());

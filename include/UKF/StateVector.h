@@ -595,9 +595,9 @@ class StateVector : public StateVectorBaseType<typename Fields::type...>
                Parameters::Sigma_WM0<StateVector> * sigma.col(0);
     }
 
-    static real_t sigma_point_mean(const Matrix<1, num_sigma()>& sigma, const real_t& field)
+    static Vector<1> sigma_point_mean(const Matrix<1, num_sigma()>& sigma, const real_t& field)
     {
-        return Parameters::Sigma_WMI<StateVector> * sigma.template segment<num_sigma() - 1>(1).sum() + Parameters::Sigma_WM0<StateVector> * sigma(0);
+        return Vector<1>(Parameters::Sigma_WMI<StateVector> * sigma.template segment<num_sigma() - 1>(1).sum() + Parameters::Sigma_WM0<StateVector> * sigma(0));
     }
 
     /*
@@ -621,10 +621,10 @@ class StateVector : public StateVectorBaseType<typename Fields::type...>
     {
         mean.template segment<Detail::StateVectorDimension<typename T::type>>(
             Detail::get_field_offset<0, Fields...>(T::key))
-            << sigma_point_mean(
-                   X.template block<Detail::StateVectorDimension<typename T::type>, num_sigma()>(
-                       Detail::get_field_offset<0, Fields...>(T::key), 0),
-                   typename T::type());
+            = sigma_point_mean(
+                X.template block<Detail::StateVectorDimension<typename T::type>, num_sigma()>(
+                    Detail::get_field_offset<0, Fields...>(T::key), 0),
+                typename T::type());
     }
 
     template <typename T1, typename T2, typename... Tail>
